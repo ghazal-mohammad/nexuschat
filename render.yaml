@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: nexuschat
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeploy: true
