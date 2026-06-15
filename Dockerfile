@@ -15,4 +15,5 @@ COPY --from=build /app/out ./out
 ENV PORT=8080
 EXPOSE 8080
 # -Djava.rmi.server.hostname=127.0.0.1 يضمن عمل RMI داخل الحاوية
-CMD ["sh","-c","java -Djava.rmi.server.hostname=127.0.0.1 -cp out nexus.RaftCluster"]
+# -XX:MaxRAMPercentage=70 يحد استهلاك الذاكرة لمناسبة النسخ المجانية (512MB)
+CMD ["sh","-c","java -XX:MaxRAMPercentage=70 -Djava.rmi.server.hostname=127.0.0.1 -cp out nexus.RaftCluster"]
