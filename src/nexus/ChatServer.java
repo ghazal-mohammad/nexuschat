@@ -61,6 +61,10 @@ public class ChatServer {
     private final AtomicInteger totalDelivered = new AtomicInteger(0);
     private final AtomicInteger totalRead      = new AtomicInteger(0);
     private final AtomicInteger offlineDropped = new AtomicInteger(0);
+    // ── عدّادات إثبات الفرق Write-time vs Read-time ───────────
+    private final AtomicInteger writeCopies    = new AtomicInteger(0);
+    private final AtomicInteger readStored     = new AtomicInteger(0);
+    private final AtomicInteger readAssembled  = new AtomicInteger(0);
     private final List<String>  eventLog       = new CopyOnWriteArrayList<>();
 
     private HttpServer httpServer;   // يُستخدم فقط في الوضع المستقل (بورت خاص)
@@ -80,6 +84,7 @@ public class ChatServer {
         server.createContext("/chat/connect", this::handleConnect);
         server.createContext("/chat/send",    this::handleSend);
         server.createContext("/chat/read",    this::handleRead);
+        server.createContext("/chat/pull",    this::handlePull);
         server.createContext("/chat/fanout",  this::handleFanout);
         server.createContext("/chat/status",  this::handleStatus);
     }
@@ -132,6 +137,7 @@ public class ChatServer {
                 m.status = ChatMessage.Status.DELIVERED;
                 sendSSE(writer, m.toJson());
                 totalDelivered.incrementAndGet();
+                readAssembled.incrementAndGet();
             }
             log("[Chat:READ_TIME] 📥 جُلب " + inbox.size() + " رسالة لـ " + user + " عند القراءة");
         }
@@ -178,22 +184,52 @@ public class ChatServer {
         respond(ex, 200, "{\"id\":\"" + msg.id + "\",\"fanout\":\"" + fanoutMode + "\",\"vc\":" + Arrays.toString(vcArr) + "}");
     }
 
-    // ── Fan-out Write-Time: نسّخ لكل مستقبِل فوراً ──────────
+    // ── Fan-out Write-Time: نسّخ لكل مستقبِل فوراً (الكلفة على الكاتب) ──
     private void fanoutWrite(ChatMessage msg) {
         if (msg.receiver != null) {
+            writeCopies.incrementAndGet();
             deliverTo(msg.receiver, msg);
         } else {
-            // Broadcast
             for (String user : getAllUsers()) {
-                if (!user.equals(msg.sender)) deliverTo(user, msg);
+                if (!user.equals(msg.sender)) { writeCopies.incrementAndGet(); deliverTo(user, msg); }
             }
         }
     }
 
-    // ── Fan-out Read-Time: خزّن مرة واحدة، اجلب عند القراءة ─
+    // ── Fan-out Read-Time: خزّن مرة واحدة، اجلب عند القراءة (الكلفة على القارئ) ─
     private void fanoutReadTime(ChatMessage msg) {
         userInbox.computeIfAbsent(msg.receiver != null ? msg.receiver : "_broadcast", k -> new CopyOnWriteArrayList<>()).add(msg);
-        log("[Chat:READ_TIME] رسالة " + msg.id + " خُزّنت — ستُجلب عند الطلب");
+        readStored.incrementAndGet();
+        log("[Chat:READ_TIME] رسالة " + msg.id + " خُزّنت — ستُجلب عند الطلب (لم تُسلَّم بعد)");
+    }
+
+    // ── سحب يدوي (Read-Time pull): سلّم صندوق وارد المستخدم دون إعادة اتصال ─
+    private void handlePull(HttpExchange ex) throws IOException {
+        String user = getParam(ex.getRequestURI().getQuery(), "user");
+        if (user == null) { respond(ex, 400, "{\"error\":\"missing user\"}"); return; }
+        PrintWriter writer = streams.get(user);
+        if (writer == null) { respond(ex, 200, "{\"pulled\":0,\"note\":\"user offline\"}"); return; }
+        List<ChatMessage> inbox = userInbox.remove(user);
+        int n = 0;
+        if (inbox != null && !writer.checkError()) {
+            for (ChatMessage m : inbox) {
+                vcFor(user).receiveArray(m.vectorClock);
+                m.status = ChatMessage.Status.DELIVERED;
+                sendSSE(writer, m.toJson());
+                totalDelivered.incrementAndGet();
+                readAssembled.incrementAndGet();
+                n++;
+            }
+            if (n > 0) log("[Chat:READ_TIME] 📥 سحب " + n + " رسالة لـ " + user + " (read-time pull)");
+        }
+        respond(ex, 200, "{\"pulled\":" + n + "}");
+    }
+
+    /** إجمالي الرسائل المنتظرة في صناديق الوارد */
+    private int pendingInboxCount() {
+        int t = 0;
+        for (List<ChatMessage> v : userInbox.values()) t += v.size();
+        return t;
     }
 
     // ── تسليم رسالة لمستخدم ──────────────────────────────────
@@ -289,6 +325,10 @@ public class ChatServer {
           .append(",\"delivered\":").append(totalDelivered.get())
           .append(",\"read\":").append(totalRead.get())
           .append(",\"dropped\":").append(offlineDropped.get())
+          .append(",\"writeCopies\":").append(writeCopies.get())
+          .append(",\"readStored\":").append(readStored.get())
+          .append(",\"readAssembled\":").append(readAssembled.get())
+          .append(",\"pending\":").append(pendingInboxCount())
           .append(",\"fanout\":\"").append(fanoutMode).append("\"}")
           .append(",\"messages\":[");
         List<ChatMessage> recent = globalLog.size() > 20

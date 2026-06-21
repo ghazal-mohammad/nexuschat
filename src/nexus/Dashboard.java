@@ -37,7 +37,7 @@ public class Dashboard {
         server.createContext("/",        ex -> respond(ex,"text/html; charset=utf-8",       buildPage()));
         server.createContext("/status",  ex -> respond(ex,"application/json; charset=utf-8",statusJson()));
         server.createContext("/metrics", ex -> respond(ex,"application/json; charset=utf-8",metricsJson()));
-        server.createContext("/action",  ex -> { handleAction(ex.getRequestURI()); respond(ex,"application/json","{\"ok\":true}"); });
+        server.createContext("/action",  ex -> respond(ex,"application/json; charset=utf-8", handleAction(ex.getRequestURI())));
     }
 
     public void start(int port) throws Exception {
@@ -48,14 +48,18 @@ public class Dashboard {
         System.out.println("Dashboard: http://localhost:" + port);
     }
 
-    private void handleAction(URI uri) {
+    private String handleAction(URI uri) {
         Map<String,String> q = parseQuery(uri.getRawQuery());
-        String cmd = q.get("cmd"); if(cmd==null) return;
+        String cmd = q.get("cmd"); if(cmd==null) return "{\"ok\":false,\"error\":\"no cmd\"}";
         try {
             switch(cmd) {
                 case "kill"      -> nodes.get(Integer.parseInt(q.get("id"))).crash();
                 case "revive"    -> nodes.get(Integer.parseInt(q.get("id"))).revive();
-                case "put"       -> lb.write(java.util.UUID.randomUUID().toString().substring(0,8),"put "+q.get("k")+" "+q.get("v"));
+                case "put"       -> {
+                    String r = lb.write(java.util.UUID.randomUUID().toString().substring(0,8),"put "+q.get("k")+" "+q.get("v"));
+                    boolean accepted = !r.contains("لا يوجد قائد") && !r.contains("ليست القائد");
+                    return "{\"ok\":true,\"accepted\":"+accepted+",\"result\":\""+esc(r)+"\"}";
+                }
                 case "loadtest"  -> lb.loadTest(50,"color");
                 case "partition" -> partitionLeader();
                 case "heal"      -> { for(RaftNodeImpl n:nodes.values()) n.unblockAll(); }
@@ -64,7 +68,8 @@ public class Dashboard {
                 case "fail"      -> nodes.get(Integer.parseInt(q.get("id"))).setFailing(true);
                 case "recover"   -> nodes.get(Integer.parseInt(q.get("id"))).setFailing(false);
             }
-        } catch(Exception ignored){}
+        } catch(Exception e){ return "{\"ok\":false,\"error\":\""+esc(String.valueOf(e.getMessage()))+"\"}"; }
+        return "{\"ok\":true}";
     }
 
     private void partitionLeader() {
