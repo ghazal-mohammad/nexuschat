@@ -183,6 +183,35 @@ input::placeholder{color:var(--faint)}
 .scrollbar::-webkit-scrollbar{width:7px;height:7px}
 .scrollbar::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px}::-webkit-scrollbar-track{background:transparent}
+.ft-box{font-size:12.5px;line-height:1.9;border-radius:12px;padding:11px 13px;border:1px solid var(--line)}
+.ft-run{background:var(--surface);border-color:var(--amber);color:var(--amber)}
+.ft-good{background:rgba(52,211,153,.1);border-color:var(--green)}
+.ft-bad{background:rgba(248,113,113,.1);border-color:var(--red)}
+.lab-intro{font-size:13px;line-height:1.8;background:var(--surface);border:1px solid var(--line);border-right:3px solid var(--accent2);border-radius:12px;padding:12px 15px;margin-bottom:16px}
+.lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.lab-grid{grid-template-columns:1fr}}
+.lab-card h3{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:13px}
+.lab-card h3 .vs{color:var(--muted);font-weight:500;font-size:12px}
+.lab-sub{font-size:12px;color:var(--muted);margin:2px 0 10px;line-height:1.6}
+.lab-seg{margin-bottom:9px;display:inline-flex}
+.lab-out{margin-top:10px;font-size:12px;line-height:1.7}
+.logrow{display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);margin-bottom:5px}
+.logrow .st{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0}
+.logrow .stp{font-weight:700;flex-shrink:0}
+.logrow .dt{color:var(--muted);font-size:11.5px}
+.st-ok{background:rgba(52,211,153,.15);color:var(--green)}
+.st-bad{background:rgba(248,113,113,.15);color:var(--red)}
+.st-warn{background:rgba(251,191,36,.15);color:var(--amber)}
+.st-info{background:rgba(34,211,238,.15);color:var(--accent2)}
+.verdict{font-size:12.5px;line-height:1.8;border-radius:10px;padding:9px 12px;margin:8px 0;border:1px solid var(--line)}
+.v-good{background:rgba(52,211,153,.1);border-color:var(--green)}
+.v-bad{background:rgba(248,113,113,.1);border-color:var(--red)}
+.lab-note{font-size:11.5px;color:var(--muted);line-height:1.7;border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}
+.rl-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rl-col h4{font-size:12px;margin-bottom:6px}
+.rl-dots{display:flex;flex-wrap:wrap;gap:4px}
+.rl-dot{width:16px;height:16px;border-radius:4px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#06121a;font-weight:700}
+.rl-ok{background:var(--green)}.rl-no{background:var(--red)}
 </style>
 </head>
 <body>
@@ -202,6 +231,7 @@ input::placeholder{color:var(--faint)}
   <button class="tab" data-tab="lb"><span class="ic">⚖️</span> موازن الأحمال</button>
   <button class="tab" data-tab="chat"><span class="ic">💬</span> الدردشة</button>
   <button class="tab" data-tab="raft"><span class="ic">🎯</span> Raft المباشر</button>
+  <button class="tab" data-tab="lab"><span class="ic">🧪</span> مختبر المفاهيم</button>
   <button class="tab" data-tab="metrics"><span class="ic">📊</span> القياسات</button>
 </nav>
 
@@ -281,10 +311,13 @@ input::placeholder{color:var(--faint)}
           <button id="fo-read" onclick="setFanout('READ_TIME')">Read-Time</button>
         </div>
       </div>
+      <div id="fanout-explain" style="font-size:12.5px;line-height:1.7;background:var(--surface);border:1px solid var(--line);border-right:3px solid var(--accent2);border-radius:10px;padding:9px 13px"></div>
+      <div id="fanout-cost" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       <div class="msgs scrollbar" id="chat-msgs"><div class="empty">اتصل أولاً ثم اختر مستخدماً للمحادثة</div></div>
       <div class="chat-input">
         <input id="msg-input" placeholder="اكتب رسالة…" onkeydown="if(event.key==='Enter')sendMsg()">
         <button class="btn primary" onclick="sendMsg()">إرسال</button>
+        <button class="btn sm" id="pull-btn" onclick="pullNow()" title="في وضع Read-Time الرسائل لا تصل حتى تسحبها">📥 اسحب (Read)</button>
         <button class="btn sm" onclick="markRead()">✓✓ قُرئ</button>
       </div>
     </div>
@@ -307,7 +340,13 @@ input::placeholder{color:var(--faint)}
     <div class="card">
       <h3><span class="ic">📋</span> حالة العقد</h3>
       <div id="raft-log" class="mb"></div>
-      <h3><span class="ic">⚙️</span> إجراءات</h3>
+      <h3><span class="ic">🔬</span> برهان فائدة الكلاستر</h3>
+      <div class="btns" style="flex-direction:column;align-items:stretch;gap:6px">
+        <button class="btn primary" id="ft-btn" onclick="proveFaultTolerance()">🛡️ اقتل القائد — الكتابة تصمد</button>
+        <button class="btn danger" id="qr-btn" onclick="proveNoQuorum()">⛔ اقتل الأغلبية — الكتابة تتوقف (CAP)</button>
+      </div>
+      <div id="ft-result" style="margin-top:8px"></div>
+      <h3 style="margin-top:12px"><span class="ic">⚙️</span> إجراءات</h3>
       <div class="btns" style="flex-direction:column;align-items:stretch">
         <button class="btn danger" onclick="act('kill',1)">⚡ اقتل Node 1</button>
         <button class="btn danger" onclick="act('kill',2)">⚡ اقتل Node 2</button>
@@ -317,6 +356,83 @@ input::placeholder{color:var(--faint)}
         <button class="btn" onclick="act('heal')">🔧 أصلح الشبكة</button>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ════ CONCEPTS LAB ════ -->
+<section id="view-lab" class="view">
+  <div class="lab-intro">🧪 <b>مختبر المفاهيم</b> — كل بطاقة تُشغّل محاكاة حقيقية على الخادم وتُظهر الفرق خطوة بخطوة. اضغط الأزرار وراقب السجلّ.</div>
+  <div class="lab-grid">
+
+    <div class="card lab-card">
+      <h3><span class="ic">🚦</span> Token Bucket <span class="vs">مقابل</span> Sliding Window</h3>
+      <p class="lab-sub">محدِّد معدّل — نشغّل الخوارزميتين على نفس دفعة الطلبات</p>
+      <div class="btns"><button class="btn primary" onclick="runRate()">▶ شغّل 14 طلباً سريعاً</button></div>
+      <div id="lab-rate" class="lab-out"></div>
+    </div>
+
+    <div class="card lab-card">
+      <h3><span class="ic">🪡</span> Orchestration <span class="vs">مقابل</span> Choreography</h3>
+      <p class="lab-sub">نمط Saga مع تعويض — رحلة: طيران → دفع → فندق</p>
+      <div class="seg lab-seg" id="seg-saga">
+        <button class="active" data-v="orchestration">Orchestration</button>
+        <button data-v="choreography">Choreography</button>
+      </div>
+      <div class="btns">
+        <button class="btn green" onclick="runSaga('none')">▶ مسار ناجح</button>
+        <button class="btn danger" onclick="runSaga('hotel')">▶ فشل الفندق (تعويض)</button>
+      </div>
+      <div id="lab-saga" class="lab-out"></div>
+    </div>
+
+    <div class="card lab-card">
+      <h3><span class="ic">📤</span> Naive <span class="vs">·</span> Outbox <span class="vs">·</span> CDC</h3>
+      <p class="lab-sub">مشكلة الكتابة المزدوجة — ماذا يحدث عند العطل بين الكتابتين؟</p>
+      <div class="seg lab-seg" id="seg-outbox">
+        <button class="active" data-v="naive">Naive</button>
+        <button data-v="outbox">Outbox</button>
+        <button data-v="cdc">CDC</button>
+      </div>
+      <div class="btns"><button class="btn warn" onclick="runOutbox()">💥 شغّل مع عطل بين الكتابتين</button></div>
+      <div id="lab-outbox" class="lab-out"></div>
+    </div>
+
+    <div class="card lab-card">
+      <h3><span class="ic">☠️</span> Regular Queue <span class="vs">مقابل</span> DLX</h3>
+      <p class="lab-sub">رسالة سامّة وسط الطابور — ماذا يحدث لما بعدها؟</p>
+      <div class="seg lab-seg" id="seg-dlx">
+        <button data-v="regular">Regular</button>
+        <button class="active" data-v="dlx">DLX</button>
+      </div>
+      <div class="btns"><button class="btn primary" onclick="runDlx()">▶ عالج 4 رسائل (الثانية سامّة)</button></div>
+      <div id="lab-dlx" class="lab-out"></div>
+    </div>
+
+    <div class="card lab-card">
+      <h3><span class="ic">🔗</span> Sync (REST) <span class="vs">مقابل</span> Async (MQ)</h3>
+      <p class="lab-sub">كمون المتصل والاقتران أمام خدمات تابعة</p>
+      <div class="seg lab-seg" id="seg-comm">
+        <button class="active" data-v="sync">Sync</button>
+        <button data-v="async">Async</button>
+      </div>
+      <div class="btns">
+        <button class="btn green" onclick="runComm(false)">▶ كل الخدمات تعمل</button>
+        <button class="btn danger" onclick="runComm(true)">▶ خدمة الدفع ساقطة</button>
+      </div>
+      <div id="lab-comm" class="lab-out"></div>
+    </div>
+
+    <div class="card lab-card">
+      <h3><span class="ic">⚖️</span> Strong <span class="vs">مقابل</span> Eventual Consistency</h3>
+      <p class="lab-sub">اكتب v2 ثم اقرأ — هل ترى القراءة أحدث قيمة فوراً؟</p>
+      <div class="seg lab-seg" id="seg-cons">
+        <button class="active" data-v="strong">Strong</button>
+        <button data-v="eventual">Eventual</button>
+      </div>
+      <div class="btns"><button class="btn primary" onclick="runCons()">▶ اكتب واقرأ</button></div>
+      <div id="lab-cons" class="lab-out"></div>
+    </div>
+
   </div>
 </section>
 
@@ -545,15 +661,139 @@ async function sendMsg(){
   addMsg({id:j.id,sender:chatUser,receiver:chatTo,content:t,timestamp:Date.now(),status:'SENT',vc:Array.isArray(j.vc)?j.vc:[]});
 }
 async function markRead(){if(!chatUser||!lastMsgId)return;await fetch(CHAT+'/chat/read?user='+encodeURIComponent(chatUser)+'&msgId='+encodeURIComponent(lastMsgId));markMsgRead(lastMsgId);}
-async function setFanout(mode){await fetch(CHAT+'/chat/fanout?mode='+mode);document.getElementById('fo-write').classList.toggle('active',mode==='WRITE_TIME');document.getElementById('fo-read').classList.toggle('active',mode==='READ_TIME');}
+async function setFanout(mode){await fetch(CHAT+'/chat/fanout?mode='+mode);document.getElementById('fo-write').classList.toggle('active',mode==='WRITE_TIME');document.getElementById('fo-read').classList.toggle('active',mode==='READ_TIME');renderFanoutExplain(mode);}
+async function pullNow(){
+  if(!chatUser){alert('اتصل أولاً');return;}
+  const r=await(await fetch(CHAT+'/chat/pull?user='+encodeURIComponent(chatUser))).json();
+  if(r.pulled>0)pushEvent('سحب Read-Time: '+r.pulled+' رسالة جُمّعت وقت القراءة لـ '+chatUser,'Read-Time Pull');
+  else pushEvent('سحب Read-Time: لا رسائل منتظرة لـ '+chatUser,'Read-Time Pull');
+}
+function renderFanoutExplain(mode){
+  const el=document.getElementById('fanout-explain');if(!el)return;
+  if(mode==='READ_TIME')
+    el.innerHTML='<b style="color:var(--accent2)">Read-Time (Pull):</b> عند الإرسال تُخزَّن الرسالة <b>مرّة واحدة</b> فقط ولا تُسلَّم. القارئ يُجمّعها وقت القراءة ← اضغط <b>📥 اسحب</b> لترى الرسائل تصل. <span style="color:var(--muted)">كتابة رخيصة · قراءة مكلفة (مثل Twitter للمشاهير)</span>';
+  else
+    el.innerHTML='<b style="color:var(--accent2)">Write-Time (Push):</b> عند الإرسال تُنسَخ الرسالة <b>فوراً</b> إلى كل متلقٍّ فتصل لحظياً بلا سحب. <span style="color:var(--muted)">كتابة مكلفة · قراءة رخيصة (مثل الخلاصة العادية)</span>';
+}
 async function refreshChat(){
   try{const d=await(await fetch(CHAT+'/chat/status')).json();const s=d.stats;
     document.getElementById('chat-stats').innerHTML=
       `<div class="stat">متصل<b>${d.online}</b></div><div class="stat">مُرسل<b>${s.sent}</b></div><div class="stat">مُسلَّم<b>${s.delivered}</b></div><div class="stat">مقروء<b>${s.read}</b></div><div class="stat">مرفوض<b style="color:var(--red)">${s.dropped}</b></div><div class="stat">Fan-out<b style="color:var(--accent2)">${s.fanout}</b></div>`;
     document.getElementById('user-list').innerHTML=d.users.map(u=>
       `<div class="user" data-u="${u.name}" onclick="selectUser(this.dataset.u)"><span class="st ${u.online?'on':'off'}"></span>${u.name}${u.offlineQ>0?`<span class="offq">${u.offlineQ}</span>`:''}</div>`).join('')||'<div class="empty">لا مستخدمين</div>';
-    if(s.fanout){document.getElementById('fo-write').classList.toggle('active',s.fanout==='WRITE_TIME');document.getElementById('fo-read').classList.toggle('active',s.fanout==='READ_TIME');}
+    if(s.fanout){document.getElementById('fo-write').classList.toggle('active',s.fanout==='WRITE_TIME');document.getElementById('fo-read').classList.toggle('active',s.fanout==='READ_TIME');renderFanoutExplain(s.fanout);}
+    document.getElementById('fanout-cost').innerHTML=
+      `<div class="stat">نُسخ وقت الكتابة (Write)<b style="color:var(--amber)">${s.writeCopies}</b></div>`+
+      `<div class="stat">خُزّنت مرة (Read)<b>${s.readStored}</b></div>`+
+      `<div class="stat">جُمّعت وقت القراءة<b style="color:var(--green)">${s.readAssembled}</b></div>`+
+      `<div class="stat">منتظرة الآن في الوارد<b style="color:var(--red)">${s.pending}</b></div>`;
   }catch(e){}
+}
+
+/* ── برهان تحمّل الأعطال ── */
+async function getStatus(){return await(await fetch('/status')).json();}
+async function proveFaultTolerance(){
+  const btn=document.getElementById('ft-btn'),res=document.getElementById('ft-result');
+  btn.disabled=true;res.innerHTML='<div class="ft-box ft-run">⏳ جارٍ البرهان… راقب لوحة Raft</div>';
+  const maxC=ns=>Math.max(...ns.map(n=>n.committed));
+  let d=await getStatus();let leader=topLeader(d.nodes);
+  if(!leader){res.innerHTML='<div class="ft-box ft-bad">لا يوجد قائد حالياً — انتظر الانتخاب ثم أعد المحاولة</div>';btn.disabled=false;return;}
+  const oldLeader=leader.id;
+  await fetch('/action?cmd=put&k=demo&v=before');await sleep(1300);
+  d=await getStatus();const cBefore=maxC(d.nodes);
+  await fetch('/action?cmd=kill&id='+oldLeader);
+  pushEvent('برهان: قتلنا القائد Node'+oldLeader,'Fault Tolerance');
+  res.innerHTML='<div class="ft-box ft-run">💀 قُتل القائد Node'+oldLeader+' — ننتظر انتخاب قائد جديد…</div>';
+  let nl=null;
+  for(let i=0;i<14;i++){await sleep(700);d=await getStatus();const L=topLeader(d.nodes);if(L&&L.alive&&L.id!==oldLeader){nl=L;break;}}
+  await fetch('/action?cmd=put&k=demo&v=after');await sleep(1500);
+  d=await getStatus();const cAfter=maxC(d.nodes);
+  await fetch('/action?cmd=revive&id='+oldLeader);
+  const survived=nl&&cAfter>cBefore;
+  res.innerHTML=`<div class="ft-box ${survived?'ft-good':'ft-bad'}">
+    <b>${survived?'✓ الكلاستر صمد':'⚠ لم يكتمل البرهان'}</b><br>
+    القائد القديم: <b>Node${oldLeader}</b> (قُتل) ${nl?`← القائد الجديد: <b style="color:var(--accent2)">Node${nl.id}</b> (term ${nl.term})`:'← لم يُنتخب بعد'}<br>
+    الالتزام (committed): <b>${cBefore}</b> ← <b style="color:var(--green)">${cAfter}</b><br>
+    ${survived?'<span style="color:var(--muted)">رغم موت القائد، نُسخت الكتابة والتزمت عبر النصاب (2 من 3). هذه فائدة الكلاستر: لا نقطة فشل واحدة.</span>':'<span style="color:var(--muted)">أعد المحاولة — قد يحتاج الانتخاب وقتاً أطول.</span>'}
+  </div>`;
+  pushEvent(survived?'برهان: الكتابة صمدت بعد موت القائد ✓':'برهان: لم يكتمل','Quorum');
+  btn.disabled=false;
+}
+async function proveNoQuorum(){
+  const btn=document.getElementById('qr-btn'),res=document.getElementById('ft-result');
+  btn.disabled=true;res.innerHTML='<div class="ft-box ft-run">⏳ جارٍ البرهان…</div>';
+  const maxC=ns=>Math.max(...ns.map(n=>n.committed));
+  let d=await getStatus();const alive=d.nodes.filter(n=>n.alive);
+  if(alive.length<3){await fetch('/action?cmd=revive&id=1');await fetch('/action?cmd=revive&id=2');await fetch('/action?cmd=revive&id=3');await sleep(2500);d=await getStatus();}
+  const cBefore=maxC(d.nodes);
+  const kill=d.nodes.slice(0,2).map(n=>n.id);
+  for(const id of kill)await fetch('/action?cmd=kill&id='+id);
+  pushEvent('برهان CAP: قتلنا الأغلبية (Node'+kill.join(', Node')+')','CAP · C>A');
+  res.innerHTML='<div class="ft-box ft-run">💀💀 قُتلت عقدتان — لم يبقَ نصاب. نحاول الكتابة…</div>';
+  await sleep(2800);
+  const w=await(await fetch('/action?cmd=put&k=q&v=test')).json();
+  await sleep(1500);d=await getStatus();const cAfter=maxC(d.nodes);
+  const blocked=(cAfter<=cBefore)||(w.accepted===false);
+  res.innerHTML=`<div class="ft-box ${blocked?'ft-good':'ft-bad'}">
+    <b>${blocked?'✓ توقفت الكتابة كما يجب':'⚠ نتيجة غير متوقّعة'}</b><br>
+    عقد حيّة: <b>1 من 3</b> ← لا نصاب (يلزم 2)<br>
+    الالتزام: <b>${cBefore}</b> ← <b>${cAfter}</b> ${blocked?'<span style="color:var(--green)">(لم يتقدّم)</span>':''}<br>
+    رد النظام: <span class="mono" style="font-size:11px">${w.result||w.error||'—'}</span><br>
+    <span style="color:var(--muted)">CAP: عند فقد الأغلبية يختار النظام <b>الاتساق على الإتاحة</b> (CP) — يرفض الكتابة بدل قبول بيانات قد تتعارض. اضغط «أحيِ الكل» للتعافي.</span>
+  </div>`;
+  pushEvent(blocked?'برهان CAP: الكتابة رُفضت (لا نصاب) ✓':'برهان CAP: غير متوقّع','CAP · C>A');
+  btn.disabled=false;
+}
+/* ── مختبر المفاهيم ── */
+document.querySelectorAll('.lab-seg').forEach(seg=>seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');})));
+function getSeg(id){const b=document.querySelector('#'+id+' button.active');return b?b.dataset.v:'';}
+function busy(){return '<div class="logrow"><span class="dt">⏳ جارٍ التشغيل…</span></div>';}
+function labNote(t){return '<div class="lab-note">'+t+'</div>';}
+function verdict(ok,txt){return '<div class="verdict '+(ok?'v-good':'v-bad')+'">'+txt+'</div>';}
+function logClass(e){const x=(e.status||'').toUpperCase();
+  if(e.type==='error'||/FAIL|LOST|BLOCK|STUCK|TIMEOUT|ERROR/.test(x))return 'st-bad';
+  if(e.type==='warn'||e.type==='compensation'||/RETRY|CRASH|PENDING|ROLLBACK/.test(x))return 'st-warn';
+  if(e.type==='info')return 'st-info';
+  return 'st-ok';}
+function renderLog(arr){return arr.map(e=>`<div class="logrow"><span class="st ${logClass(e)}">${e.status}</span><div><span class="stp">${e.step}</span> — <span class="dt">${e.detail}</span></div></div>`).join('');}
+async function runRate(){
+  const el=document.getElementById('lab-rate');el.innerHTML=busy();
+  const d=await(await fetch('/lab/ratelimit')).json();
+  const dots=r=>r.map(x=>`<div class="rl-dot ${x.ok?'rl-ok':'rl-no'}">${x.ok?'✓':'✗'}</div>`).join('');
+  el.innerHTML=`<div class="rl-grid">
+    <div class="rl-col"><h4 style="color:var(--accent2)">Token Bucket <span class="dt">سعة ${d.capacity} · تعبئة ${d.refillRps}/ث</span></h4>
+      <div class="rl-dots">${dots(d.tokenBucket.reqs)}</div>
+      <div class="dt" style="margin-top:6px">سُمح <b style="color:var(--green)">${d.tokenBucket.allowed}</b> · رُفض <b style="color:var(--red)">${d.tokenBucket.denied}</b></div></div>
+    <div class="rl-col"><h4 style="color:var(--accent2)">Sliding Window <span class="dt">حد ${d.limit}/${d.windowMs}ms</span></h4>
+      <div class="rl-dots">${dots(d.slidingWindow.reqs)}</div>
+      <div class="dt" style="margin-top:6px">سُمح <b style="color:var(--green)">${d.slidingWindow.allowed}</b> · رُفض <b style="color:var(--red)">${d.slidingWindow.denied}</b></div></div>
+  </div>${labNote(d.note)}`;
+}
+async function runSaga(fail){
+  const el=document.getElementById('lab-saga');el.innerHTML=busy();
+  const d=await(await fetch('/lab/saga?mode='+getSeg('seg-saga')+'&fail='+fail)).json();
+  el.innerHTML=renderLog(d.log)+verdict(d.success,d.success?'✓ اكتملت المعاملة الموزّعة (Saga)':'✗ فشلت خطوة → نُفّذت التعويضات لاستعادة الاتساق')+labNote(d.note);
+}
+async function runOutbox(){
+  const el=document.getElementById('lab-outbox');el.innerHTML=busy();
+  const d=await(await fetch('/lab/outbox?mode='+getSeg('seg-outbox')+'&crash=true')).json();
+  el.innerHTML=renderLog(d.log)+verdict(d.consistent,d.consistent?'✓ متّسق: البيانات والحدث متطابقان رغم العطل':'✗ عدم اتساق: القاعدة محدّثة والحدث مفقود')+labNote(d.note);
+}
+async function runDlx(){
+  const el=document.getElementById('lab-dlx');el.innerHTML=busy();
+  const d=await(await fetch('/lab/dlx?mode='+getSeg('seg-dlx'))).json();
+  el.innerHTML=renderLog(d.log)+verdict(d.drained,d.drained?('✓ عولجت '+d.processed+' رسالة'+(d.dead?' · '+d.dead+' في DLX':'')):'✗ تعطّل الطابور بسبب الرسالة السامّة')+labNote(d.note);
+}
+async function runComm(down){
+  const el=document.getElementById('lab-comm');el.innerHTML=busy();
+  const d=await(await fetch('/lab/comm?mode='+getSeg('seg-comm')+'&down='+down)).json();
+  el.innerHTML=`<div class="verdict ${d.callerOk?'v-good':'v-bad'}">كمون المتصل <b>${d.callerLatencyMs}ms</b> · إجمالي العمل <b>${d.totalWorkMs}ms</b> · ${d.callerOk?'نجح ✓':'فشل ✗'}</div>`+renderLog(d.log)+labNote(d.note);
+}
+async function runCons(){
+  const el=document.getElementById('lab-cons');el.innerHTML=busy();
+  const d=await(await fetch('/lab/consistency?mode='+getSeg('seg-cons'))).json();
+  el.innerHTML=renderLog(d.log)+labNote(d.note);
 }
 
 /* ── shared actions ── */

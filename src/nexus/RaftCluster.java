@@ -43,6 +43,9 @@ public class RaftCluster {
         ChatServer chatServer = new ChatServer();
         chatServer.registerOn(http);
 
+        ConceptsLab lab = new ConceptsLab();   // مختبر المفاهيم: /lab/*
+        lab.registerOn(http);
+
         http.start();
         chatServer.start();
 
