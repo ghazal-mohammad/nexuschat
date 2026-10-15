@@ -1,13 +1,3 @@
----
-title: NexusChat
-emoji: 🛰️
-colorFrom: indigo
-colorTo: blue
-sdk: docker
-app_port: 8080
-pinned: false
----
-
 # NexusChat — Distributed Systems, Live
 
 A Java RMI platform that demonstrates distributed-systems algorithms interactively, with a web control center that shows the cluster's behavior in real time. Built for the Distributed Systems course, Damascus University.
